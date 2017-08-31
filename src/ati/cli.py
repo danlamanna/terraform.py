@@ -8,11 +8,11 @@ import argparse
 import json
 import os
 
-from ati import __name__, __version__ 
+from ati import __name__, __version__
 from ati.terraform import (
     get_stage_root, iterhosts, iterresources,
     query_host, query_hostfile, query_list, tfstates,
-    iter_states)
+    iter_states, terraform_outputs)
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -45,7 +45,7 @@ def get_args():
     # extra aws args
     parser.add_argument('--aws_name_key',
                         # also defaulted in ati.terraform.aws_host
-                        default='tags.Name', 
+                        default='tags.Name',
                         action='store',
                         help='resouce attribute key to use as a name')
     parser.add_argument('--aws_ssh_host_key',
@@ -73,9 +73,12 @@ def cli():
         parser.exit()
 
     if args.noterraform:
-        hosts = iterhosts(iterresources(tfstates(args.root)), args)
+        states = list(tfstates(args.root))
     else:
-        hosts = iterhosts(iterresources(iter_states(args.root)), args)
+        states = list(iter_states(args.root))
+
+    outputs = terraform_outputs(states)
+    hosts = iterhosts(iterresources(states), args, outputs)
 
     if args.list:
         output = query_list(hosts)

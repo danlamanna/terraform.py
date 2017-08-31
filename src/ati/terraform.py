@@ -52,15 +52,27 @@ def iter_states(root=None):
 
 def iterresources(sources):
     for source in sources:
-	if type(source) in [unicode, str]:
+        if type(source) in [unicode, str]:
             with open(source, 'r') as json_file:
                 state = json.load(json_file)
-	else:
-	    state = source
+        else:
+            state = source
         for module in state['modules']:
             name = module['path'][-1]
             for key, resource in list(module['resources'].items()):
                 yield name, key, resource
+
+
+def terraform_outputs(sources):
+    for source in sources:
+        if type(source) in [unicode, str]:
+            with open(source, 'r') as json_file:
+                state = json.load(json_file)
+        else:
+            state = source
+        for module in state['modules']:
+            for key, value in module['outputs'].items():
+                yield key, value['value']
 
 
 def get_stage_root(tf_dirname=None, root=None):
@@ -101,7 +113,7 @@ def _clean_dc(dcname):
     return re.sub('[^\w_\-]', '-', dcname)
 
 
-def iterhosts(resources, args):
+def iterhosts(resources, args, outputs):
     '''yield host tuples of (name, attributes, groups)'''
     for module_name, key, resource in resources:
         resource_type, name = key.split('.', 1)
@@ -110,7 +122,7 @@ def iterhosts(resources, args):
         except KeyError:
             continue
 
-        yield parser(resource, module_name, args=args)
+        yield parser(resource, module_name, args=args, outputs=outputs)
 
 
 def parses(prefix):
@@ -606,6 +618,10 @@ def aws_host(resource, module_name, **kwargs):
     # groups specific to Mantl
     groups.append('role=' + attrs['role'])
     groups.append('dc=' + attrs['consul_dc'])
+
+    # add outputs to attrs
+    for (k, v) in kwargs.get('outputs', []):
+        attrs[k] = v
 
     return name, attrs, groups
 
